@@ -263,8 +263,8 @@ body {
 /* ----- Cards Grid ----- */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
   animation: fadeInUp 0.6s ease-out;
 }
 
@@ -284,7 +284,7 @@ body {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   border-radius: 20px;
-  padding: 24px;
+  padding: 28px 26px;
   box-shadow:
     0 4px 20px rgba(255, 120, 160, 0.12),
     0 2px 6px rgba(255, 120, 160, 0.08);
@@ -317,28 +317,28 @@ body {
 
 .card-title {
   font-family: 'Nunito', sans-serif;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 800;
   color: #4A2A3A;
   margin-bottom: 12px;
-  line-height: 1.4;
+  line-height: 1.5;
   padding-right: 8px;
 }
 
 .card-content {
   font-family: 'Quicksand', sans-serif;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   color: #5A3A4A;
-  line-height: 1.7;
+  line-height: 1.8;
   flex: 1;
   margin-bottom: 16px;
   white-space: pre-wrap;
   word-break: break-word;
   background: rgba(255, 228, 235, 0.3);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border: 1px solid rgba(255, 182, 193, 0.2);
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #FFB6C1 transparent;
