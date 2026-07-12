@@ -19,44 +19,31 @@
   <!-- ============================================= -->
   <header class="kawaii-header">
     <div class="header-content">
-      <!-- Cute inline SVG anime girl illustration -->
       <div class="cute-girl-illustration" aria-label="Cute anime girl illustration">
         <svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg" class="girl-svg">
-          <!-- Hair (back) -->
           <ellipse cx="100" cy="115" rx="68" ry="80" fill="#6B3A5A"/>
           <ellipse cx="100" cy="110" rx="58" ry="70" fill="#8B5A7B"/>
-          <!-- Hair bangs -->
           <path d="M58 78 Q65 55 85 62 Q90 48 100 50 Q110 48 115 62 Q135 55 142 78 Q140 72 130 75 Q120 58 100 55 Q80 58 70 75 Q60 72 58 78Z" fill="#6B3A5A"/>
-          <!-- Face -->
           <ellipse cx="100" cy="120" rx="45" ry="48" fill="#FFE8E0"/>
-          <!-- Blush -->
           <ellipse cx="72" cy="132" rx="14" ry="8" fill="#FFB5B5" opacity="0.6"/>
           <ellipse cx="128" cy="132" rx="14" ry="8" fill="#FFB5B5" opacity="0.6"/>
-          <!-- Eyes (closed cute ^_^) -->
           <path d="M75 112 Q82 102 89 112" stroke="#4A2A3A" stroke-width="3" fill="none" stroke-linecap="round"/>
           <path d="M111 112 Q118 102 125 112" stroke="#4A2A3A" stroke-width="3" fill="none" stroke-linecap="round"/>
-          <!-- Eyelashes -->
           <line x1="75" y1="112" x2="72" y2="108" stroke="#4A2A3A" stroke-width="2" stroke-linecap="round"/>
           <line x1="89" y1="112" x2="92" y2="108" stroke="#4A2A3A" stroke-width="2" stroke-linecap="round"/>
           <line x1="111" y1="112" x2="108" y2="108" stroke="#4A2A3A" stroke-width="2" stroke-linecap="round"/>
           <line x1="125" y1="112" x2="128" y2="108" stroke="#4A2A3A" stroke-width="2" stroke-linecap="round"/>
-          <!-- Mouth (cute smile) -->
           <path d="M93 140 Q100 148 107 140" stroke="#E8737A" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-          <!-- Bow on head -->
           <ellipse cx="90" cy="65" rx="16" ry="10" fill="#FF7B9C" transform="rotate(-20 90 65)"/>
           <ellipse cx="110" cy="65" rx="16" ry="10" fill="#FF7B9C" transform="rotate(20 110 65)"/>
           <ellipse cx="100" cy="68" rx="6" ry="5" fill="#FF4777"/>
-          <!-- Neck -->
           <rect x="88" y="162" width="24" height="12" rx="6" fill="#FFE8E0"/>
-          <!-- Body/dress (cute little dress) -->
           <path d="M70 172 Q68 200 55 228 L145 228 Q132 200 130 172 Z" fill="#FF9EBB"/>
           <path d="M55 228 Q60 220 70 172" stroke="#FF7096" stroke-width="0" fill="#FFB0CC"/>
           <path d="M145 228 Q140 220 130 172" stroke="#FF7096" stroke-width="0" fill="#FFB0CC"/>
-          <!-- Dress ribbon -->
           <circle cx="100" cy="195" r="4" fill="#FF4777"/>
           <path d="M96 195 L86 188" stroke="#FF4777" stroke-width="2" stroke-linecap="round"/>
           <path d="M104 195 L114 188" stroke="#FF4777" stroke-width="2" stroke-linecap="round"/>
-          <!-- Sparkles around -->
           <text x="28" y="60" font-size="16" fill="#FFD700" opacity="0.7">✦</text>
           <text x="158" y="50" font-size="12" fill="#FFB6E1" opacity="0.7">✦</text>
           <text x="18" y="140" font-size="10" fill="#FFB6E1" opacity="0.5">✦</text>
@@ -66,15 +53,20 @@
         </svg>
       </div>
 
+      <!-- Mobile hamburger -->
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+        <span></span><span></span><span></span>
+      </button>
+
       <h1 class="site-title">Cutie Menu <span class="sparkle-emoji">✨</span></h1>
       <p class="site-subtitle">Sweet picks, pink clicks 🩷</p>
     </div>
   </header>
 
   <!-- ============================================= -->
-  <!-- MAIN CONTENT                                  -->
+  <!-- SIDEBAR + CONTENT LAYOUT                       -->
   <!-- ============================================= -->
-  <main class="main-content">
+  <div class="app-layout" id="appLayout">
     <!-- Loading state -->
     <div class="loading-container" id="loadingContainer">
       <div class="loading-hearts">
@@ -100,9 +92,37 @@
       <p class="empty-text">No items found in the sheet yet!</p>
     </div>
 
-    <!-- Cards grid -->
-    <div class="cards-grid hidden" id="cardsGrid"></div>
-  </main>
+    <!-- Sidebar -->
+    <aside class="sidebar hidden" id="sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-icon">🌸</span>
+        <span class="sidebar-label">Menu</span>
+      </div>
+      <nav class="sidebar-nav" id="sidebarNav"></nav>
+    </aside>
+
+    <!-- Main content panel -->
+    <main class="content-panel hidden" id="contentPanel">
+      <!-- Welcome / placeholder when nothing is selected -->
+      <div class="content-welcome" id="contentWelcome">
+        <div class="welcome-icon">🎀</div>
+        <h2 class="welcome-title">Pick something cute!</h2>
+        <p class="welcome-text">Select an item from the sidebar to view its content~</p>
+      </div>
+
+      <!-- Selected item content -->
+      <div class="content-detail hidden" id="contentDetail">
+        <h2 class="detail-title" id="detailTitle"></h2>
+        <div class="detail-body" id="detailBody"></div>
+        <button class="copy-btn" id="detailCopyBtn" aria-label="Copy content">Copy</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============================================= -->
+  <!-- Sidebar overlay for mobile                     -->
+  <!-- ============================================= -->
+  <div class="sidebar-overlay hidden" id="sidebarOverlay"></div>
 
   <!-- ============================================= -->
   <!-- FOOTER                                        -->

@@ -1,5 +1,5 @@
 /* ======================================================
-   CUTIE MENU ✨ - Kawaii Google Sheets Fetcher
+   CUTIE MENU ✨ - Kawaii Google Sheets Sidebar Fetcher
    ======================================================
    INSTRUCTIONS TO CHANGE THE GOOGLE SHEET:
    -------------------------------------------------------
@@ -24,14 +24,25 @@ const SHEET_GID = 0;
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
 
 /* ---- DOM references ---- */
-const cardsGrid = document.getElementById('cardsGrid');
+const sidebar = document.getElementById('sidebar');
+const sidebarNav = document.getElementById('sidebarNav');
+const contentPanel = document.getElementById('contentPanel');
+const contentWelcome = document.getElementById('contentWelcome');
+const contentDetail = document.getElementById('contentDetail');
+const detailTitle = document.getElementById('detailTitle');
+const detailBody = document.getElementById('detailBody');
+const detailCopyBtn = document.getElementById('detailCopyBtn');
 const loadingContainer = document.getElementById('loadingContainer');
 const errorContainer = document.getElementById('errorContainer');
 const errorMessage = document.getElementById('errorMessage');
 const retryBtn = document.getElementById('retryBtn');
 const emptyContainer = document.getElementById('emptyContainer');
 const toast = document.getElementById('toast');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 
+let items = [];
+let activeIndex = -1;
 let toastTimer = null;
 
 /* ---- Fetch & render ---- */
@@ -54,7 +65,7 @@ async function fetchSheetData() {
       return;
     }
 
-    const items = [];
+    items = [];
     for (const row of dataRows) {
       if (row.length >= 2) {
         const title = (row[0] || '').trim();
@@ -70,7 +81,7 @@ async function fetchSheetData() {
       return;
     }
 
-    renderCards(items);
+    renderSidebar(items);
   } catch (err) {
     console.error('Fetch error:', err);
     showError(err.message || 'Could not fetch data from the sheet.');
@@ -91,7 +102,7 @@ function parseCSV(text) {
     if (inQuotes) {
       if (char === '"' && nextChar === '"') {
         currentField += '"';
-        i++; // skip escaped quote
+        i++;
       } else if (char === '"') {
         inQuotes = false;
       } else {
@@ -111,14 +122,13 @@ function parseCSV(text) {
         }
         currentRow = [];
       } else if (char === '\r') {
-        // skip carriage return
+        // skip
       } else {
         currentField += char;
       }
     }
   }
 
-  // Last field/row
   if (currentField || inQuotes) {
     currentRow.push(currentField);
   }
@@ -129,59 +139,66 @@ function parseCSV(text) {
   return rows;
 }
 
-/* ---- Render cards ---- */
-function renderCards(items) {
+/* ---- Render sidebar items ---- */
+function renderSidebar(items) {
   hideAllStates();
-  cardsGrid.classList.remove('hidden');
-  cardsGrid.innerHTML = '';
+  sidebar.classList.remove('hidden');
+  contentPanel.classList.remove('hidden');
+  sidebarNav.innerHTML = '';
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.style.setProperty('--card-index', i);
-
-    const titleEl = document.createElement('h3');
-    titleEl.className = 'card-title';
-    titleEl.textContent = item.title;
-
-    const contentEl = document.createElement('div');
-    contentEl.className = 'card-content';
-    contentEl.textContent = item.content;
-
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'copy-btn';
-    copyBtn.textContent = ' Copy';
-    copyBtn.setAttribute('aria-label', `Copy content from "${item.title}"`);
-    copyBtn.dataset.content = item.content;
-
-    copyBtn.addEventListener('click', function() {
-      copyToClipboard(this);
-    });
-
-    card.appendChild(titleEl);
-    card.appendChild(contentEl);
-    card.appendChild(copyBtn);
-    cardsGrid.appendChild(card);
+    const btn = document.createElement('button');
+    btn.className = 'sidebar-item';
+    btn.textContent = item.title;
+    btn.addEventListener('click', () => selectItem(i));
+    sidebarNav.appendChild(btn);
   }
 }
 
-/* ---- Copy to clipboard ---- */
-function copyToClipboard(btn) {
-  const text = btn.dataset.content;
+/* ---- Select sidebar item ---- */
+function selectItem(index) {
+  activeIndex = index;
+  const item = items[index];
 
+  // Update sidebar active state
+  const allBtns = sidebarNav.querySelectorAll('.sidebar-item');
+  allBtns.forEach((btn, i) => {
+    btn.classList.toggle('active', i === index);
+  });
+
+  // Show content detail
+  contentWelcome.classList.add('hidden');
+  contentDetail.classList.remove('hidden');
+  detailTitle.textContent = item.title;
+  detailBody.textContent = item.content;
+
+  // Reset copy button
+  detailCopyBtn.classList.remove('copied');
+  detailCopyBtn.disabled = false;
+  detailCopyBtn.textContent = ' Copy';
+
+  // Close mobile sidebar after selection
+  closeSidebar();
+}
+
+/* ---- Copy to clipboard ---- */
+detailCopyBtn.addEventListener('click', () => {
+  if (activeIndex < 0 || activeIndex >= items.length) return;
+
+  const text = items[activeIndex].content;
   if (!text) return;
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => {
-      onCopySuccess(btn);
+      onCopySuccess(detailCopyBtn);
     }).catch(() => {
-      fallbackCopy(text, btn);
+      fallbackCopy(text, detailCopyBtn);
     });
   } else {
-    fallbackCopy(text, btn);
+    fallbackCopy(text, detailCopyBtn);
   }
-}
+});
 
 /* ---- Fallback copy using textarea ---- */
 function fallbackCopy(text, btn) {
@@ -209,7 +226,6 @@ function onCopySuccess(btn) {
   btn.textContent = ' Copied!';
   showToast('✅ Copied!');
 
-  // Reset button after 2s
   setTimeout(() => {
     btn.classList.remove('copied');
     btn.disabled = false;
@@ -222,10 +238,7 @@ function showToast(message) {
   toast.textContent = message;
   toast.classList.remove('hidden', 'fade-out');
   toast.classList.add('show');
-
   clearTimeout(toastTimer);
-
-  // Auto-hide after 2s
   toastTimer = setTimeout(() => {
     toast.classList.remove('show');
     toast.classList.add('hidden');
@@ -253,8 +266,39 @@ function hideAllStates() {
   loadingContainer.classList.add('hidden');
   errorContainer.classList.add('hidden');
   emptyContainer.classList.add('hidden');
-  cardsGrid.classList.add('hidden');
+  sidebar.classList.add('hidden');
+  contentPanel.classList.add('hidden');
 }
+
+/* ---- Sidebar mobile toggle ---- */
+function openSidebar() {
+  sidebar.classList.add('open');
+  sidebarOverlay.classList.remove('hidden');
+  sidebarToggle.classList.add('active');
+}
+
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebarOverlay.classList.add('hidden');
+  sidebarToggle.classList.remove('active');
+}
+
+sidebarToggle.addEventListener('click', () => {
+  if (sidebar.classList.contains('open')) {
+    closeSidebar();
+  } else {
+    openSidebar();
+  }
+});
+
+sidebarOverlay.addEventListener('click', closeSidebar);
+
+// Close sidebar on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+    closeSidebar();
+  }
+});
 
 /* ---- Retry button ---- */
 retryBtn.addEventListener('click', () => {
