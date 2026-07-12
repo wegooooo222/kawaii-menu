@@ -11,89 +11,55 @@
 </head>
 <body>
 
-  <!-- Sparkles (lightweight, fewer elements) -->
-  <div class="sparkles" id="sparkles"></div>
+  <div class="sparkles" id="sparkles" aria-hidden="true"></div>
 
-  <!-- ========== HEADER ========== -->
-  <header class="header">
-    <div class="header-inner">
-      <div class="mascot" aria-hidden="true">
-        <svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="100" cy="115" rx="68" ry="80" fill="#6B3A5A"/>
-          <ellipse cx="100" cy="110" rx="58" ry="70" fill="#8B5A7B"/>
-          <path d="M58 78 Q65 55 85 62 Q90 48 100 50 Q110 48 115 62 Q135 55 142 78 Q140 72 130 75 Q120 58 100 55 Q80 58 70 75 Q60 72 58 78Z" fill="#6B3A5A"/>
-          <ellipse cx="100" cy="120" rx="45" ry="48" fill="#FFE8E0"/>
-          <ellipse cx="72" cy="132" rx="14" ry="8" fill="#FFB5B5" opacity="0.6"/>
-          <ellipse cx="128" cy="132" rx="14" ry="8" fill="#FFB5B5" opacity="0.6"/>
-          <path d="M75 112 Q82 102 89 112" stroke="#4A2A3A" stroke-width="3" fill="none" stroke-linecap="round"/>
-          <path d="M111 112 Q118 102 125 112" stroke="#4A2A3A" stroke-width="3" fill="none" stroke-linecap="round"/>
-          <line x1="75" y1="112" x2="72" y2="108" stroke="#4A2A3A" stroke-width="2" stroke-linecap="round"/>
-          <line x1="89" y1="112" x2="92" y2="108" stroke="#4A2A3A" stroke-width="2" stroke-linecap="round"/>
-          <line x1="111" y1="112" x2="108" y2="108" stroke="#4A2A3A" stroke-width="2" stroke-linecap="round"/>
-          <line x1="125" y1="112" x2="128" y2="108" stroke="#4A2A3A" stroke-width="2" stroke-linecap="round"/>
-          <path d="M93 140 Q100 148 107 140" stroke="#E8737A" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-          <ellipse cx="90" cy="65" rx="16" ry="10" fill="#FF7B9C" transform="rotate(-20 90 65)"/>
-          <ellipse cx="110" cy="65" rx="16" ry="10" fill="#FF7B9C" transform="rotate(20 110 65)"/>
-          <ellipse cx="100" cy="68" rx="6" ry="5" fill="#FF4777"/>
-          <rect x="88" y="162" width="24" height="12" rx="6" fill="#FFE8E0"/>
-          <path d="M70 172 Q68 200 55 228 L145 228 Q132 200 130 172 Z" fill="#FF9EBB"/>
-          <circle cx="100" cy="195" r="4" fill="#FF4777"/>
-          <path d="M96 195 L86 188" stroke="#FF4777" stroke-width="2" stroke-linecap="round"/>
-          <path d="M104 195 L114 188" stroke="#FF4777" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+  <!-- Header -->
+  <header class="hdr">
+    <div class="hdr-inner">
+      <button class="hdr-menu" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div class="hdr-brand">
+        <svg class="hdr-mascot" viewBox="0 0 200 240"><ellipse cx="100" cy="115" rx="68" ry="80" fill="#6B3A5A"/><ellipse cx="100" cy="110" rx="58" ry="70" fill="#8B5A7B"/><path d="M58 78 Q65 55 85 62 Q90 48 100 50 Q110 48 115 62 Q135 55 142 78 Q140 72 130 75 Q120 58 100 55 Q80 58 70 75 Q60 72 58 78Z" fill="#6B3A5A"/><ellipse cx="100" cy="120" rx="45" ry="48" fill="#FFE8E0"/><ellipse cx="72" cy="132" rx="14" ry="8" fill="#FFB5B5" opacity="0.6"/><ellipse cx="128" cy="132" rx="14" ry="8" fill="#FFB5B5" opacity="0.6"/><path d="M75 112 Q82 102 89 112" stroke="#4A2A3A" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M111 112 Q118 102 125 112" stroke="#4A2A3A" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M93 140 Q100 148 107 140" stroke="#E8737A" stroke-width="2.5" fill="none" stroke-linecap="round"/><ellipse cx="90" cy="65" rx="16" ry="10" fill="#FF7B9C" transform="rotate(-20 90 65)"/><ellipse cx="110" cy="65" rx="16" ry="10" fill="#FF7B9C" transform="rotate(20 110 65)"/><ellipse cx="100" cy="68" rx="6" ry="5" fill="#FF4777"/><rect x="88" y="162" width="24" height="12" rx="6" fill="#FFE8E0"/><path d="M70 172 Q68 200 55 228 L145 228 Q132 200 130 172 Z" fill="#FF9EBB"/><circle cx="100" cy="195" r="4" fill="#FF4777"/><path d="M96 195 L86 188" stroke="#FF4777" stroke-width="2" stroke-linecap="round"/><path d="M104 195 L114 188" stroke="#FF4777" stroke-width="2" stroke-linecap="round"/></svg>
+        <h1 class="hdr-title">Cutie Menu <span class="spin">✨</span></h1>
       </div>
-      <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
-        <span></span><span></span><span></span>
-      </button>
-      <h1 class="title">Cutie Menu <span class="spin">✨</span></h1>
-      <p class="subtitle">Sweet picks, pink clicks 🩷</p>
+      <p class="hdr-sub">Sweet picks, pink clicks 🩷</p>
     </div>
   </header>
 
-  <!-- ========== APP BODY ========== -->
-  <div class="app" id="app">
+  <!-- Main content: full-width card grid -->
+  <main class="main" id="main">
 
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-head">
-        <span>🌸</span> Menu
-      </div>
-      <nav class="sidebar-nav" id="sidebarNav">
-        <!-- skeleton items injected by JS -->
-      </nav>
-    </aside>
+    <!-- Error state -->
+    <div class="state hidden" id="errorBox">
+      <span class="state-emoji">😿</span>
+      <h2>Oopsie!</h2>
+      <p id="errorMsg">Something went wrong</p>
+      <button class="btn-retry" id="retryBtn">Try Again ♡</button>
+    </div>
 
-    <!-- Content -->
-    <main class="content" id="content">
-      <!-- Welcome -->
-      <div class="welcome" id="welcome">
-        <span class="welcome-emoji">🎀</span>
-        <h2>Pick something cute!</h2>
-        <p>Select an item from the menu to view its content~</p>
-      </div>
+    <!-- Card grid (filled by JS) -->
+    <div class="grid" id="grid">
+      <!-- skeleton cards injected by JS immediately -->
+    </div>
+  </main>
 
-      <!-- Detail (hidden initially) -->
-      <div class="detail hidden" id="detail">
-        <h2 class="detail-title" id="detailTitle"></h2>
-        <pre class="detail-body" id="detailBody"></pre>
-        <button class="copy-btn" id="copyBtn"> Copy</button>
-      </div>
-
-      <!-- Error (hidden initially) -->
-      <div class="state-msg hidden" id="errorBox">
-        <span class="state-icon">😿</span>
-        <h2>Oopsie!</h2>
-        <p id="errorMsg">Something went wrong</p>
-        <button class="retry-btn" id="retryBtn">Try Again ♡</button>
-      </div>
-    </main>
+  <!-- Detail overlay -->
+  <div class="overlay hidden" id="overlayBg"></div>
+  <div class="detail-panel hidden" id="detailPanel">
+    <button class="detail-close" id="detailClose" aria-label="Close">✕</button>
+    <h2 class="detail-title" id="detailTitle"></h2>
+    <div class="detail-body" id="detailBody"></div>
+    <button class="copy-btn" id="copyBtn"> Copy</button>
   </div>
 
-  <!-- Mobile overlay -->
-  <div class="overlay hidden" id="overlay"></div>
+  <!-- Mobile sidebar -->
+  <div class="moverlay hidden" id="mOverlay"></div>
+  <aside class="msidebar" id="mSidebar">
+    <div class="msidebar-head">🌸 Menu</div>
+    <nav class="msidebar-nav" id="mSidebarNav"></nav>
+  </aside>
 
   <!-- Toast -->
-  <div class="toast hidden" id="toast">✅ Copied!</div>
+  <div class="toast hidden" id="toast"></div>
 
   <script src="script.js"></script>
 </body>

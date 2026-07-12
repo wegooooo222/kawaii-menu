@@ -1,54 +1,53 @@
 /* ======================================================
-   CUTIE MENU ✨ — Performant, Cached, Skeleton-Loaded
+   CUTIE MENU ✨ — Card Grid + Detail Panel + cache
    ====================================================== */
 
-// ------- CONFIG -------
-const SHEET_ID   = '1U5KtFNN3SPcCygk4joTvCfpeA8SCgBaVE9mSjvR9rvM';
-const SHEET_GID  = 0;
-const CSV_URL    = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
-const CACHE_KEY  = 'cutiemenu_cache_v2';
-const CACHE_TTL  = 5 * 60 * 1000; // 5 min
-const SKELETON_N = 6;             // skeleton items shown while loading
+const SHEET_ID  = '1U5KtFNN3SPcCygk4joTvCfpeA8SCgBaVE9mSjvR9rvM';
+const SHEET_GID = 0;
+const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+const CACHE_KEY = 'cutiemenu_grid_v2';
+const CACHE_TTL = 5 * 60 * 1000; // 5 min
+const SKELETON_COUNT = 8;
 
-// ------- DOM REFS -------
-const $   = (id) => document.getElementById(id);
-const sidebar    = $('sidebar');
-const sidebarNav = $('sidebarNav');
-const contentEl  = $('content');
-const welcome    = $('welcome');
-const detail     = $('detail');
-const detailTitle= $('detailTitle');
-const detailBody = $('detailBody');
-const copyBtn    = $('copyBtn');
-const errorBox   = $('errorBox');
-const errorMsg   = $('errorMsg');
-const retryBtn   = $('retryBtn');
-const toast      = $('toast');
-const menuToggle = $('menuToggle');
-const overlay    = $('overlay');
+const $ = (id) => document.getElementById(id);
 
-// ------- STATE -------
+// DOM
+const grid         = $('grid');
+const errorBox     = $('errorBox');
+const errorMsg     = $('errorMsg');
+const retryBtn     = $('retryBtn');
+const overlayBg    = $('overlayBg');
+const detailPanel  = $('detailPanel');
+const detailClose  = $('detailClose');
+const detailTitle  = $('detailTitle');
+const detailBody   = $('detailBody');
+const copyBtn      = $('copyBtn');
+const toast        = $('toast');
+const menuToggle   = $('menuToggle');
+const mOverlay     = $('mOverlay');
+const mSidebar     = $('mSidebar');
+const mSidebarNav  = $('mSidebarNav');
+
 let items       = [];
 let activeIndex = -1;
 let toastTimer  = null;
 
-// ==================================================
-//  INIT — try cache first, then fetch
-// ==================================================
+// ===================== INIT =====================
 document.addEventListener('DOMContentLoaded', () => {
-  renderSkeletons();
   createSparkles();
+  renderSkeletons();
 
   const cached = readCache();
   if (cached) {
     items = cached;
-    renderSidebar();
-    return; // instant — no fetch needed
+    renderGrid();
+    renderMobileSidebar();
+    return;
   }
-
-  fetchSheetData();
+  fetchData();
 });
 
+// ===================== CACHE =====================
 function readCache() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
@@ -58,31 +57,22 @@ function readCache() {
   } catch { /* ignore */ }
   return null;
 }
-
 function writeCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); }
-  catch { /* storage full or private mode */ }
+  catch { /* ignore */ }
 }
 
-// ==================================================
-//  SKELETON LOADING (instant, no spinner)
-// ==================================================
+// ===================== SKELETONS =====================
 function renderSkeletons() {
-  let html = '';
-  for (let i = 0; i < SKELETON_N; i++) {
-    html += `<div class="skeleton-item"><span class="skel-bar skel-bullet"></span><span class="skel-bar skel-text" style="width:${55 + Math.random() * 30}%"></span></div>`;
+  let h = '';
+  for (let i = 0; i < SKELETON_COUNT; i++) {
+    h += `<div class="skel-card"><div class="skel-line w1"></div><div class="skel-line w2"></div><div class="skel-line w3"></div></div>`;
   }
-  sidebarNav.innerHTML = html;
+  grid.innerHTML = h;
 }
 
-function clearSkeletons() {
-  sidebarNav.innerHTML = '';
-}
-
-// ==================================================
-//  FETCH
-// ==================================================
-async function fetchSheetData() {
+// ===================== FETCH =====================
+async function fetchData() {
   try {
     const res = await fetch(CSV_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -93,23 +83,21 @@ async function fetchSheetData() {
     items = [];
     for (const row of data) {
       if (row.length < 2) continue;
-      const title = (row[0] || '').trim();
+      const title   = (row[0] || '').trim();
       const content = (row[1] || '').trim();
       if (title || content) items.push({ title, content });
     }
     if (!items.length) return showError('No data found in the sheet.');
 
     writeCache(items);
-    renderSidebar();
+    renderGrid();
+    renderMobileSidebar();
   } catch (err) {
     console.error(err);
     showError(err.message || 'Could not fetch data.');
   }
 }
 
-// ==================================================
-//  CSV PARSER
-// ==================================================
 function parseCSV(text) {
   const rows = [];
   let row = [], field = '', inQ = false;
@@ -131,40 +119,55 @@ function parseCSV(text) {
   return rows;
 }
 
-// ==================================================
-//  RENDER SIDEBAR
-// ==================================================
-function renderSidebar() {
-  clearSkeletons();
-  let html = '';
+// ===================== RENDER GRID =====================
+function renderGrid() {
+  let h = '';
   items.forEach((item, i) => {
-    html += `<button class="nav-item" style="animation-delay:${i * 30}ms" data-idx="${i}">${escHtml(item.title)}</button>`;
+    const preview = (item.content || '').slice(0, 150).replace(/\s+/g, ' ').trim();
+    h += `
+      <div class="card" data-idx="${i}" tabindex="0" role="button" aria-label="${escHtml(item.title)}">
+        <div class="card-title">${escHtml(item.title)}</div>
+        <div class="card-preview">${escHtml(preview) || 'No preview'}</div>
+        <div class="card-footer">♡ View details</div>
+      </div>`;
   });
-  sidebarNav.innerHTML = html;
+  grid.innerHTML = h;
 
-  // Delegated click
-  sidebarNav.onclick = (e) => {
-    const btn = e.target.closest('.nav-item');
-    if (!btn) return;
-    selectItem(+btn.dataset.idx);
+  // delegated click + keyboard
+  grid.onclick = (e) => {
+    const card = e.target.closest('.card');
+    if (!card) return;
+    openDetail(+card.dataset.idx);
   };
-
-  // Show sidebar
-  sidebar.classList.remove('hidden');
+  grid.onkeydown = (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.card');
+    if (!card) return;
+    e.preventDefault();
+    openDetail(+card.dataset.idx);
+  };
 }
 
-// ==================================================
-//  SELECT ITEM
-// ==================================================
-function selectItem(index) {
+// ===================== MOBILE SIDEBAR =====================
+function renderMobileSidebar() {
+  let h = '';
+  items.forEach((item, i) => {
+    h += `<button class="mnav-item" data-idx="${i}">${escHtml(item.title)}</button>`;
+  });
+  mSidebarNav.innerHTML = h;
+
+  mSidebarNav.onclick = (e) => {
+    const btn = e.target.closest('.mnav-item');
+    if (!btn) return;
+    openDetail(+btn.dataset.idx);
+    closeMobileSidebar();
+  };
+}
+
+// ===================== DETAIL PANEL =====================
+function openDetail(index) {
   if (index < 0 || index >= items.length) return;
   activeIndex = index;
-
-  sidebarNav.querySelectorAll('.nav-item').forEach((b, i) => b.classList.toggle('active', i === index));
-
-  welcome.classList.add('hidden');
-  detail.classList.remove('hidden');
-  errorBox.classList.add('hidden');
 
   detailTitle.textContent = items[index].title;
   detailBody.textContent  = items[index].content;
@@ -173,19 +176,45 @@ function selectItem(index) {
   copyBtn.disabled = false;
   copyBtn.innerHTML = '📋 Copy';
 
-  closeSidebar();
+  overlayBg.classList.remove('hidden');
+  detailPanel.classList.remove('hidden');
+  // trigger reflow then open
+  void detailPanel.offsetWidth;
+  detailPanel.classList.add('open');
+
+  // focus trap
+  detailClose.focus();
 }
 
-// ==================================================
-//  COPY
-// ==================================================
+function closeDetail() {
+  detailPanel.classList.remove('open');
+  const onTransitionEnd = () => {
+    detailPanel.classList.add('hidden');
+    overlayBg.classList.add('hidden');
+    detailPanel.removeEventListener('transitionend', onTransitionEnd);
+    activeIndex = -1;
+  };
+  detailPanel.addEventListener('transitionend', onTransitionEnd, { once: true });
+  // fallback if transitionend doesn't fire
+  setTimeout(() => { detailPanel.classList.add('hidden'); overlayBg.classList.add('hidden'); activeIndex = -1; }, 400);
+}
+
+detailClose.addEventListener('click', closeDetail);
+overlayBg.addEventListener('click', closeDetail);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && detailPanel.classList.contains('open')) {
+    closeDetail();
+  }
+});
+
+// ===================== COPY =====================
 copyBtn.addEventListener('click', () => {
   if (activeIndex < 0) return;
   const text = items[activeIndex].content;
   if (!text) return;
 
   if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(() => copied(), () => fallbackCopy(text));
+    navigator.clipboard.writeText(text).then(copied, () => fallbackCopy(text));
   } else {
     fallbackCopy(text);
   }
@@ -211,91 +240,58 @@ function copied() {
   }, 1800);
 }
 
-// ==================================================
-//  TOAST
-// ==================================================
+// ===================== TOAST =====================
 function toastMsg(msg) {
   toast.textContent = msg;
   toast.classList.remove('hidden');
   void toast.offsetWidth;
-  toast.classList.add('show');
+  toast.classList.add('visible');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hidden'); }, 2000);
+  toastTimer = setTimeout(() => { toast.classList.remove('visible'); toast.classList.add('hidden'); }, 2000);
 }
 
-// ==================================================
-//  ERROR STATE
-// ==================================================
+// ===================== ERROR =====================
 function showError(msg) {
-  clearSkeletons();
-  sidebar.classList.add('hidden');
-  welcome.classList.add('hidden');
-  detail.classList.add('hidden');
+  grid.classList.add('hidden');
   errorBox.classList.remove('hidden');
   errorMsg.textContent = msg || 'Could not fetch data.';
 }
-
 retryBtn.addEventListener('click', () => {
   errorBox.classList.add('hidden');
+  grid.classList.remove('hidden');
   renderSkeletons();
-  sidebar.classList.remove('hidden');
-  fetchSheetData();
+  fetchData();
 });
 
-// ==================================================
-//  MOBILE SIDEBAR
-// ==================================================
-function openSidebar()  { sidebar.classList.add('open'); overlay.classList.remove('hidden'); menuToggle.classList.add('open'); }
-function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.add('hidden'); menuToggle.classList.remove('open'); }
+// ===================== MOBILE SIDEBAR TOGGLE =====================
+function openMobileSidebar()  { mSidebar.classList.add('open'); mOverlay.classList.remove('hidden'); menuToggle.classList.add('open'); }
+function closeMobileSidebar() { mSidebar.classList.remove('open'); mOverlay.classList.add('hidden'); menuToggle.classList.remove('open'); }
 
-menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
-overlay.addEventListener('click', closeSidebar);
+menuToggle.addEventListener('click', () => mSidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar());
+mOverlay.addEventListener('click', closeMobileSidebar);
 
-// ==================================================
-//  KEYBOARD NAVIGATION
-// ==================================================
-document.addEventListener('keydown', (e) => {
-  if (sidebar.classList.contains('open') && e.key === 'Escape') return closeSidebar();
-  if (e.key === 'ArrowDown') { e.preventDefault(); navBy(1); }
-  if (e.key === 'ArrowUp')   { e.preventDefault(); navBy(-1); }
-});
-
-function navBy(dir) {
-  const btns = sidebarNav.querySelectorAll('.nav-item');
-  if (!btns.length) return;
-  let next = activeIndex + dir;
-  if (next < 0) next = btns.length - 1;
-  if (next >= btns.length) next = 0;
-  btns[next].focus();
-  selectItem(next);
-}
-
-// ==================================================
-//  SPARKLES (lightweight)
-// ==================================================
+// ===================== SPARKLES =====================
 function createSparkles() {
   const chars  = ['✦','✧','⋆','☆','｡','❀'];
   const colors = ['#FFB6C1','#FFD700','#FFB6E1','#FF9EBB','#DDA0DD','#87CEEB'];
   const parent = $('sparkles');
   const frag   = new DocumentFragment();
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 16; i++) {
     const s = document.createElement('span');
     s.className = 's-dot';
     s.textContent = chars[i % chars.length];
-    s.style.left   = ((i * 17 + 3) % 100) + '%';
-    s.style.top    = ((i * 23 + 7) % 100) + '%';
+    s.style.left   = ((i * 19 + 5) % 100) + '%';
+    s.style.top    = ((i * 27 + 3) % 100) + '%';
     s.style.color  = colors[i % colors.length];
-    s.style.fontSize        = (10 + (i % 10)) + 'px';
-    s.style.animationDuration = (5 + (i % 4)) + 's';
-    s.style.animationDelay    = (i * 0.6) + 's';
+    s.style.fontSize        = (10 + (i % 8)) + 'px';
+    s.style.animationDuration = (5 + (i % 3)) + 's';
+    s.style.animationDelay    = (i * 0.7) + 's';
     frag.appendChild(s);
   }
   parent.appendChild(frag);
 }
 
-// ==================================================
-//  UTIL
-// ==================================================
+// ===================== UTIL =====================
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
