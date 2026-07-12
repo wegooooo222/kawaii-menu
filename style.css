@@ -263,8 +263,8 @@ body {
 /* ----- Cards Grid ----- */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 18px;
   animation: fadeInUp 0.6s ease-out;
 }
 
@@ -283,8 +283,8 @@ body {
 .card {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
-  border-radius: 20px;
-  padding: 28px 26px;
+  border-radius: 18px;
+  padding: 22px 18px;
   box-shadow:
     0 4px 20px rgba(255, 120, 160, 0.12),
     0 2px 6px rgba(255, 120, 160, 0.08);
@@ -304,7 +304,7 @@ body {
   right: 0;
   height: 4px;
   background: linear-gradient(90deg, #FFB6C1, #FF7B9C, #FFB6C1);
-  border-radius: 20px 20px 0 0;
+  border-radius: 18px 18px 0 0;
 }
 
 .card:hover {
@@ -317,26 +317,26 @@ body {
 
 .card-title {
   font-family: 'Nunito', sans-serif;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: #4A2A3A;
-  margin-bottom: 12px;
-  line-height: 1.5;
-  padding-right: 8px;
+  margin-bottom: 10px;
+  line-height: 1.45;
+  padding-right: 4px;
 }
 
 .card-content {
   font-family: 'Quicksand', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: #5A3A4A;
-  line-height: 1.8;
+  line-height: 1.7;
   flex: 1;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   white-space: pre-wrap;
   word-break: break-word;
   background: rgba(255, 228, 235, 0.3);
-  border-radius: 12px;
-  padding: 16px 18px;
+  border-radius: 10px;
+  padding: 12px 14px;
   border: 1px solid rgba(255, 182, 193, 0.2);
   max-height: 320px;
   overflow-y: auto;
@@ -360,25 +360,25 @@ body {
 /* ----- Copy Button ----- */
 .copy-btn {
   align-self: flex-end;
-  padding: 8px 20px;
+  padding: 7px 16px;
+  font-size: 0.8rem;
   background: linear-gradient(135deg, #FFB6C1, #FF7B9C);
   color: white;
   border: none;
   border-radius: 50px;
   font-family: 'Nunito', sans-serif;
-  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   box-shadow: 0 3px 10px rgba(255, 123, 156, 0.25);
 }
 
 .copy-btn::before {
   content: '📋';
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .copy-btn:hover:not(:disabled) {
