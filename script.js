@@ -1,87 +1,129 @@
 /* ======================================================
-   CUTIE MENU ✨ - Kawaii Google Sheets Sidebar Fetcher
+   CUTIE MENU ✨ — Performant, Cached, Skeleton-Loaded
    ====================================================== */
 
-// ===== ✏️ CONFIG ===== //
+// ------- CONFIG -------
+const SHEET_ID   = '1U5KtFNN3SPcCygk4joTvCfpeA8SCgBaVE9mSjvR9rvM';
+const SHEET_GID  = 0;
+const CSV_URL    = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+const CACHE_KEY  = 'cutiemenu_cache_v2';
+const CACHE_TTL  = 5 * 60 * 1000; // 5 min
+const SKELETON_N = 6;             // skeleton items shown while loading
 
-const SHEET_ID  = '1U5KtFNN3SPcCygk4joTvCfpeA8SCgBaVE9mSjvR9rvM';
-const SHEET_GID = 0;
-const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
-const STAGGER_MS_PER_ITEM  = 40;   // delay between each sidebar item entrance
-const COPY_COOLDOWN_MS     = 2000;  // copy button reset time
-const TOAST_DURATION_MS    = 2000;  // toast auto-hide time
-const SPARKLE_COUNT        = 30;    // floating sparkles
+// ------- DOM REFS -------
+const $   = (id) => document.getElementById(id);
+const sidebar    = $('sidebar');
+const sidebarNav = $('sidebarNav');
+const contentEl  = $('content');
+const welcome    = $('welcome');
+const detail     = $('detail');
+const detailTitle= $('detailTitle');
+const detailBody = $('detailBody');
+const copyBtn    = $('copyBtn');
+const errorBox   = $('errorBox');
+const errorMsg   = $('errorMsg');
+const retryBtn   = $('retryBtn');
+const toast      = $('toast');
+const menuToggle = $('menuToggle');
+const overlay    = $('overlay');
 
-/* ---- DOM refs ---- */
-const $ = (id) => document.getElementById(id);
-
-const sidebar       = $('sidebar');
-const sidebarNav    = $('sidebarNav');
-const contentPanel  = $('contentPanel');
-const contentWelcome = $('contentWelcome');
-const contentDetail  = $('contentDetail');
-const detailTitle    = $('detailTitle');
-const detailBody     = $('detailBody');
-const detailCopyBtn  = $('detailCopyBtn');
-const loadingCont    = $('loadingContainer');
-const errorCont      = $('errorContainer');
-const errorMsg       = $('errorMessage');
-const retryBtn       = $('retryBtn');
-const emptyCont      = $('emptyContainer');
-const toast          = $('toast');
-const sidebarToggle  = $('sidebarToggle');
-const sidebarOverlay = $('sidebarOverlay');
-
-/* ---- State ---- */
+// ------- STATE -------
 let items       = [];
 let activeIndex = -1;
 let toastTimer  = null;
 
-/* ======================================================
-   FETCH & PARSE
-   ====================================================== */
+// ==================================================
+//  INIT — try cache first, then fetch
+// ==================================================
+document.addEventListener('DOMContentLoaded', () => {
+  renderSkeletons();
+  createSparkles();
 
+  const cached = readCache();
+  if (cached) {
+    items = cached;
+    renderSidebar();
+    return; // instant — no fetch needed
+  }
+
+  fetchSheetData();
+});
+
+function readCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts < CACHE_TTL) return data;
+  } catch { /* ignore */ }
+  return null;
+}
+
+function writeCache(data) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); }
+  catch { /* storage full or private mode */ }
+}
+
+// ==================================================
+//  SKELETON LOADING (instant, no spinner)
+// ==================================================
+function renderSkeletons() {
+  let html = '';
+  for (let i = 0; i < SKELETON_N; i++) {
+    html += `<div class="skeleton-item"><span class="skel-bar skel-bullet"></span><span class="skel-bar skel-text" style="width:${55 + Math.random() * 30}%"></span></div>`;
+  }
+  sidebarNav.innerHTML = html;
+}
+
+function clearSkeletons() {
+  sidebarNav.innerHTML = '';
+}
+
+// ==================================================
+//  FETCH
+// ==================================================
 async function fetchSheetData() {
-  showLoading();
   try {
     const res = await fetch(CSV_URL);
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-
-    const rows  = parseCSV(await res.text());
-    const data  = rows.slice(1); // skip header
-    if (!data.length) return showEmpty();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = parseCSV(await res.text());
+    const data = rows.slice(1);
+    if (!data.length) return showError('No data found in the sheet.');
 
     items = [];
     for (const row of data) {
       if (row.length < 2) continue;
-      const title   = (row[0] || '').trim();
+      const title = (row[0] || '').trim();
       const content = (row[1] || '').trim();
       if (title || content) items.push({ title, content });
     }
-    if (!items.length) return showEmpty();
+    if (!items.length) return showError('No data found in the sheet.');
 
-    renderSidebar(items);
+    writeCache(items);
+    renderSidebar();
   } catch (err) {
-    console.error('Fetch error:', err);
-    showError(err.message || 'Could not fetch data from the sheet.');
+    console.error(err);
+    showError(err.message || 'Could not fetch data.');
   }
 }
 
+// ==================================================
+//  CSV PARSER
+// ==================================================
 function parseCSV(text) {
   const rows = [];
   let row = [], field = '', inQ = false;
-
   for (let i = 0; i < text.length; i++) {
-    const c = text[i], next = text[i + 1] || '';
+    const c = text[i], n = text[i + 1] || '';
     if (inQ) {
-      if (c === '"' && next === '"') { field += '"'; i++; }
+      if (c === '"' && n === '"') { field += '"'; i++; }
       else if (c === '"') inQ = false;
       else field += c;
     } else {
       if (c === '"') inQ = true;
       else if (c === ',')  { row.push(field); field = ''; }
       else if (c === '\n') { row.push(field); field = ''; if (row.some(f => f.trim())) rows.push(row); row = []; }
-      else if (c !== '\r') { field += c; }
+      else if (c !== '\r') field += c;
     }
   }
   if (field || inQ) row.push(field);
@@ -89,198 +131,171 @@ function parseCSV(text) {
   return rows;
 }
 
-/* ======================================================
-   RENDER SIDEBAR
-   ====================================================== */
-
-function renderSidebar(items) {
-  hideAllStates();
-  sidebar.classList.remove('hidden');
-  contentPanel.classList.remove('hidden');
-  sidebarNav.innerHTML = '';
-
+// ==================================================
+//  RENDER SIDEBAR
+// ==================================================
+function renderSidebar() {
+  clearSkeletons();
+  let html = '';
   items.forEach((item, i) => {
-    const btn = document.createElement('button');
-    btn.className  = 'sidebar-item';
-    btn.textContent = item.title;
-    btn.tabIndex   = 0;
-    btn.style.setProperty('--item-delay', `${i * STAGGER_MS_PER_ITEM}ms`);
-    btn.addEventListener('click', () => selectItem(i));
-    sidebarNav.appendChild(btn);
+    html += `<button class="nav-item" style="animation-delay:${i * 30}ms" data-idx="${i}">${escHtml(item.title)}</button>`;
   });
+  sidebarNav.innerHTML = html;
+
+  // Delegated click
+  sidebarNav.onclick = (e) => {
+    const btn = e.target.closest('.nav-item');
+    if (!btn) return;
+    selectItem(+btn.dataset.idx);
+  };
+
+  // Show sidebar
+  sidebar.classList.remove('hidden');
 }
 
-/* ======================================================
-   SELECTION
-   ====================================================== */
-
+// ==================================================
+//  SELECT ITEM
+// ==================================================
 function selectItem(index) {
   if (index < 0 || index >= items.length) return;
   activeIndex = index;
-  const item   = items[index];
 
-  // highlight active
-  sidebarNav.querySelectorAll('.sidebar-item').forEach((btn, i) => {
-    btn.classList.toggle('active', i === index);
-  });
+  sidebarNav.querySelectorAll('.nav-item').forEach((b, i) => b.classList.toggle('active', i === index));
 
-  // show detail
-  contentWelcome.classList.add('hidden');
-  contentDetail.classList.remove('hidden');
-  detailTitle.textContent = item.title;
-  detailBody.textContent  = item.content;
+  welcome.classList.add('hidden');
+  detail.classList.remove('hidden');
+  errorBox.classList.add('hidden');
 
-  // reset copy btn
-  detailCopyBtn.classList.remove('copied');
-  detailCopyBtn.disabled = false;
-  detailCopyBtn.textContent = ' Copy';
+  detailTitle.textContent = items[index].title;
+  detailBody.textContent  = items[index].content;
+
+  copyBtn.classList.remove('copied');
+  copyBtn.disabled = false;
+  copyBtn.innerHTML = '📋 Copy';
 
   closeSidebar();
 }
 
-function navigateByKey(direction) {
-  const btns = sidebarNav.querySelectorAll('.sidebar-item');
-  if (!btns.length) return;
-  const max = btns.length - 1;
-  let next  = activeIndex + direction;
-  if (next < 0) next = max;
-  if (next > max) next = 0;
-  btns[next].focus();
-  selectItem(next);
-}
-
-/* ======================================================
-   CLIPBOARD
-   ====================================================== */
-
-detailCopyBtn.addEventListener('click', () => {
-  if (activeIndex < 0 || activeIndex >= items.length) return;
+// ==================================================
+//  COPY
+// ==================================================
+copyBtn.addEventListener('click', () => {
+  if (activeIndex < 0) return;
   const text = items[activeIndex].content;
   if (!text) return;
 
   if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(() => onCopySuccess(detailCopyBtn)).catch(() => fallbackCopy(text, detailCopyBtn));
+    navigator.clipboard.writeText(text).then(() => copied(), () => fallbackCopy(text));
   } else {
-    fallbackCopy(text, detailCopyBtn);
+    fallbackCopy(text);
   }
 });
 
-function fallbackCopy(text, btn) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+function fallbackCopy(text) {
+  const ta = Object.assign(document.createElement('textarea'), { value: text, style: 'position:fixed;left:-9999px' });
   document.body.appendChild(ta);
   ta.select();
-  try { document.execCommand('copy'); onCopySuccess(btn); }
-  catch { showToast('❌ Copy failed!'); }
-  document.body.removeChild(ta);
+  try { document.execCommand('copy'); copied(); } catch { toastMsg('❌ Copy failed'); }
+  ta.remove();
 }
 
-function onCopySuccess(btn) {
-  btn.classList.add('copied');
-  btn.disabled = true;
-  btn.textContent = ' Copied!';
-  showToast('✅ Copied!');
+function copied() {
+  copyBtn.classList.add('copied');
+  copyBtn.disabled = true;
+  copyBtn.innerHTML = '✅ Copied!';
+  toastMsg('✅ Copied!');
   setTimeout(() => {
-    btn.classList.remove('copied');
-    btn.disabled = false;
-    btn.textContent = ' Copy';
-  }, COPY_COOLDOWN_MS);
+    copyBtn.classList.remove('copied');
+    copyBtn.disabled = false;
+    copyBtn.innerHTML = '📋 Copy';
+  }, 1800);
 }
 
-/* ======================================================
-   TOAST
-   ====================================================== */
-
-function showToast(message) {
-  toast.textContent = message;
+// ==================================================
+//  TOAST
+// ==================================================
+function toastMsg(msg) {
+  toast.textContent = msg;
   toast.classList.remove('hidden');
-  // force reflow so transition works on repeated calls
   void toast.offsetWidth;
   toast.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    toast.classList.remove('show');
-    toast.classList.add('hidden');
-  }, TOAST_DURATION_MS);
+  toastTimer = setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hidden'); }, 2000);
 }
 
-/* ======================================================
-   STATE TRANSITIONS
-   ====================================================== */
-
-function showLoading()  { hideAllStates(); loadingCont.classList.remove('hidden'); }
-function showEmpty()    { hideAllStates(); emptyCont.classList.remove('hidden'); }
-
+// ==================================================
+//  ERROR STATE
+// ==================================================
 function showError(msg) {
-  hideAllStates();
-  errorCont.classList.remove('hidden');
-  errorMsg.textContent = msg || 'Something went wrong while fetching data.';
+  clearSkeletons();
+  sidebar.classList.add('hidden');
+  welcome.classList.add('hidden');
+  detail.classList.add('hidden');
+  errorBox.classList.remove('hidden');
+  errorMsg.textContent = msg || 'Could not fetch data.';
 }
 
-function hideAllStates() {
-  for (const el of [loadingCont, errorCont, emptyCont, sidebar, contentPanel]) {
-    el.classList.add('hidden');
-  }
-}
-
-/* ======================================================
-   MOBILE SIDEBAR TOGGLE
-   ====================================================== */
-
-function openSidebar()  { sidebar.classList.add('open'); sidebarOverlay.classList.remove('hidden'); sidebarToggle.classList.add('active'); }
-function closeSidebar() { sidebar.classList.remove('open'); sidebarOverlay.classList.add('hidden'); sidebarToggle.classList.remove('active'); }
-
-sidebarToggle.addEventListener('click', () => {
-  sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
-});
-sidebarOverlay.addEventListener('click', closeSidebar);
-
-/* ======================================================
-   KEYBOARD SHORTCUTS
-   ====================================================== */
-
-document.addEventListener('keydown', (e) => {
-  if (sidebar.classList.contains('open') && e.key === 'Escape') {
-    return closeSidebar();
-  }
-  // Arrow keys navigate sidebar items
-  if (e.key === 'ArrowDown') { e.preventDefault(); navigateByKey(1); }
-  if (e.key === 'ArrowUp')   { e.preventDefault(); navigateByKey(-1); }
-});
-
-/* ======================================================
-   INIT
-   ====================================================== */
-
-retryBtn.addEventListener('click', fetchSheetData);
-
-document.addEventListener('DOMContentLoaded', () => {
+retryBtn.addEventListener('click', () => {
+  errorBox.classList.add('hidden');
+  renderSkeletons();
+  sidebar.classList.remove('hidden');
   fetchSheetData();
-  createSparkles();
 });
 
-/* ======================================================
-   SPARKLES BACKGROUND
-   ====================================================== */
+// ==================================================
+//  MOBILE SIDEBAR
+// ==================================================
+function openSidebar()  { sidebar.classList.add('open'); overlay.classList.remove('hidden'); menuToggle.classList.add('open'); }
+function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.add('hidden'); menuToggle.classList.remove('open'); }
 
+menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
+overlay.addEventListener('click', closeSidebar);
+
+// ==================================================
+//  KEYBOARD NAVIGATION
+// ==================================================
+document.addEventListener('keydown', (e) => {
+  if (sidebar.classList.contains('open') && e.key === 'Escape') return closeSidebar();
+  if (e.key === 'ArrowDown') { e.preventDefault(); navBy(1); }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); navBy(-1); }
+});
+
+function navBy(dir) {
+  const btns = sidebarNav.querySelectorAll('.nav-item');
+  if (!btns.length) return;
+  let next = activeIndex + dir;
+  if (next < 0) next = btns.length - 1;
+  if (next >= btns.length) next = 0;
+  btns[next].focus();
+  selectItem(next);
+}
+
+// ==================================================
+//  SPARKLES (lightweight)
+// ==================================================
 function createSparkles() {
-  const chars  = ['✦','✧','⋆','☆','·','｡','⁕','❀'];
+  const chars  = ['✦','✧','⋆','☆','｡','❀'];
   const colors = ['#FFB6C1','#FFD700','#FFB6E1','#FF9EBB','#DDA0DD','#87CEEB'];
   const parent = $('sparkles');
-  let frag = document.createDocumentFragment();
-
-  for (let i = 0; i < SPARKLE_COUNT; i++) {
+  const frag   = new DocumentFragment();
+  for (let i = 0; i < 18; i++) {
     const s = document.createElement('span');
-    s.className = 'sparkle-dot';
-    s.textContent = chars[Math.floor(Math.random() * chars.length)];
-    s.style.left   = Math.random() * 100 + '%';
-    s.style.top    = Math.random() * 100 + '%';
-    s.style.fontSize        = (10 + Math.random() * 14) + 'px';
-    s.style.color           = colors[Math.floor(Math.random() * colors.length)];
-    s.style.animationDuration = (4 + Math.random() * 6) + 's';
-    s.style.animationDelay    = (Math.random() * 5) + 's';
+    s.className = 's-dot';
+    s.textContent = chars[i % chars.length];
+    s.style.left   = ((i * 17 + 3) % 100) + '%';
+    s.style.top    = ((i * 23 + 7) % 100) + '%';
+    s.style.color  = colors[i % colors.length];
+    s.style.fontSize        = (10 + (i % 10)) + 'px';
+    s.style.animationDuration = (5 + (i % 4)) + 's';
+    s.style.animationDelay    = (i * 0.6) + 's';
     frag.appendChild(s);
   }
   parent.appendChild(frag);
+}
+
+// ==================================================
+//  UTIL
+// ==================================================
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
