@@ -1,34 +1,38 @@
 /* ======================================================
-   CUTIE MENU ✨ — Sidebar + Content + Cache
+   CUTIE MENU ✨ — Sidebar + Content + Search + Cache
    ====================================================== */
 
 const SHEET_ID  = '1U5KtFNN3SPcCygk4joTvCfpeA8SCgBaVE9mSjvR9rvM';
 const SHEET_GID = 0;
 const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
-const CACHE_KEY = 'cutiemenu_sidebar_v3';
+const CACHE_KEY = 'cutiemenu_sidebar_v4';
 const CACHE_TTL = 5 * 60 * 1000;
 const SKELETONS = 7;
 
 const $ = id => document.getElementById(id);
 
 // DOM
-const sidebar    = $('sidebar');
-const sidebarNav = $('sidebarNav');
-const errorBox   = $('errorBox');
-const errorMsg   = $('errorMsg');
-const retryBtn   = $('retryBtn');
-const detailEmpty= $('detailEmpty');
-const detailCard = $('detailCard');
-const detailTitle= $('detailTitle');
-const detailBody = $('detailBody');
-const copyBtn    = $('copyBtn');
-const toast      = $('toast');
-const menuToggle = $('menuToggle');
-const mOverlay   = $('mOverlay');
+const sidebar     = $('sidebar');
+const sidebarNav  = $('sidebarNav');
+const searchInput = $('searchInput');
+const searchClear = $('searchClear');
+const errorBox    = $('errorBox');
+const errorMsg    = $('errorMsg');
+const retryBtn    = $('retryBtn');
+const detailEmpty = $('detailEmpty');
+const detailCard  = $('detailCard');
+const detailTitle = $('detailTitle');
+const detailBody  = $('detailBody');
+const copyBtn     = $('copyBtn');
+const toast       = $('toast');
+const menuToggle  = $('menuToggle');
+const mOverlay    = $('mOverlay');
 
-let items       = [];
-let activeIndex = -1;
-let toastTimer  = null;
+let items        = [];
+let filteredIdxs = [];
+let activeIndex  = -1;
+let toastTimer   = null;
+let searchTimer  = null;
 
 // ===================== INIT =====================
 document.addEventListener('DOMContentLoaded', () => {
@@ -111,11 +115,23 @@ function parseCSV(text) {
 }
 
 // ===================== RENDER NAV =====================
-function renderNav() {
+function renderNav(filter) {
+  const query = (filter || '').toLowerCase().trim();
+  filteredIdxs = [];
+
   let h = '';
   items.forEach((item, i) => {
+    if (query && !item.title.toLowerCase().includes(query) && !item.content.toLowerCase().includes(query)) {
+      return;
+    }
+    filteredIdxs.push(i);
     h += `<button class="nav-item" data-idx="${i}">${escHtml(item.title)}</button>`;
   });
+
+  if (!h) {
+    h = '<div style="padding:24px 18px;text-align:center;color:var(--tx-fade);font-size:.85rem;font-weight:600">No results found ~</div>';
+  }
+
   sidebarNav.innerHTML = h;
 
   sidebarNav.onclick = e => {
@@ -123,8 +139,6 @@ function renderNav() {
     if (!btn) return;
     selectItem(+btn.dataset.idx);
   };
-
-  // Mobile nav also bound here (same sidebar DOM)
 }
 
 // ===================== SELECT =====================
@@ -134,7 +148,6 @@ function selectItem(index) {
 
   sidebarNav.querySelectorAll('.nav-item').forEach((b, i) => b.classList.toggle('active', i === index));
 
-  // show detail
   detailEmpty.classList.add('hidden');
   detailCard.classList.remove('hidden');
   errorBox.classList.add('hidden');
@@ -146,9 +159,24 @@ function selectItem(index) {
   copyBtn.disabled = false;
   copyBtn.innerHTML = '📋 Copy';
 
-  // on mobile, close sidebar after selection
   if (window.innerWidth <= 800) closeMobileSidebar();
 }
+
+// ===================== SEARCH =====================
+searchInput.addEventListener('input', () => {
+  const val = searchInput.value;
+  searchClear.classList.toggle('visible', val.length > 0);
+
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { renderNav(val); }, 150);
+});
+
+searchClear.addEventListener('click', () => {
+  searchInput.value = '';
+  searchClear.classList.remove('visible');
+  renderNav('');
+  searchInput.focus();
+});
 
 // ===================== COPY =====================
 copyBtn.addEventListener('click', () => {
@@ -201,12 +229,19 @@ retryBtn.addEventListener('click', () => {
 });
 
 // ===================== MOBILE TOGGLE =====================
-function openMobileSidebar()  { sidebar.classList.add('open'); mOverlay.classList.remove('hidden'); menuToggle.classList.add('open'); }
+function openMobileSidebar()  {
+  sidebar.classList.add('open'); mOverlay.classList.remove('hidden'); menuToggle.classList.add('open');
+  setTimeout(() => searchInput.focus(), 350);
+}
 function closeMobileSidebar() { sidebar.classList.remove('open'); mOverlay.classList.add('hidden'); menuToggle.classList.remove('open'); }
 
 menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar());
 mOverlay.addEventListener('click', closeMobileSidebar);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && sidebar.classList.contains('open')) closeMobileSidebar(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sidebar.classList.contains('open')) closeMobileSidebar();
+  // don't let Escape close when typing in search
+  if (e.key === 'Escape' && document.activeElement === searchInput) return;
+});
 
 // ===================== KEYBOARD ARROW NAV =====================
 document.addEventListener('keydown', e => {
@@ -215,13 +250,20 @@ document.addEventListener('keydown', e => {
 });
 
 function navBy(dir) {
+  if (!filteredIdxs.length) return;
   const btns = sidebarNav.querySelectorAll('.nav-item');
   if (!btns.length) return;
-  let next = activeIndex + dir;
-  if (next < 0) next = btns.length - 1;
-  if (next >= btns.length) next = 0;
-  btns[next].focus();
-  selectItem(next);
+
+  let pos = filteredIdxs.indexOf(activeIndex);
+  if (pos === -1) pos = 0;
+  else {
+    pos += dir;
+    if (pos < 0) pos = filteredIdxs.length - 1;
+    if (pos >= filteredIdxs.length) pos = 0;
+  }
+  const nextIdx = filteredIdxs[pos];
+  btns[pos].focus();
+  selectItem(nextIdx);
 }
 
 // ===================== SPARKLES =====================

@@ -102,6 +102,29 @@ body {
   background: rgba(255,210,225,.25);
   display: flex; align-items: center; gap: 8px;
 }
+.sidebar-search {
+  position: relative; padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.search-input {
+  width: 100%; padding: 8px 32px 8px 12px;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: rgba(255,255,255,.55); backdrop-filter: blur(6px);
+  font-family: 'Nunito',sans-serif; font-size: .82rem; font-weight: 600;
+  color: var(--tx); outline: none; transition: border .2s;
+}
+.search-input::placeholder { color: var(--tx-fade); font-weight: 500; }
+.search-input:focus { border-color: var(--pink); }
+.search-icon {
+  position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+  font-size: .72rem; color: var(--tx-fade); cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity .15s;
+  padding: 2px 4px;
+}
+.search-icon.visible { opacity: 1; pointer-events: auto; }
+.search-icon:hover { color: var(--pink); }
+
 .sidebar-nav {
   flex: 1; overflow-y: auto; padding: 4px 0;
   scrollbar-width: thin; scrollbar-color: var(--pink-lt) transparent;
