@@ -1,85 +1,64 @@
 /* ======================================================
    CUTIE MENU ✨ - Kawaii Google Sheets Sidebar Fetcher
-   ======================================================
-   INSTRUCTIONS TO CHANGE THE GOOGLE SHEET:
-   -------------------------------------------------------
-   1. Set your Google Sheet to "Anyone with the link can view"
-   2. Replace SHEET_ID below with your sheet's ID
-      (found in the URL: /d/{SHEET_ID}/edit)
-   3. Change SHEET_GID if you want a different tab (default = 0)
-   4. That's it! The CSV export URL works for public sheets.
    ====================================================== */
 
-// ===== ✏️ EDIT THIS SECTION ===== //
+// ===== ✏️ CONFIG ===== //
 
-/** Your Google Sheet ID (from the URL) */
-const SHEET_ID = '1U5KtFNN3SPcCygk4joTvCfpeA8SCgBaVE9mSjvR9rvM';
-
-/** Sheet tab GID (0 = first sheet, 123456789 = other tabs) */
+const SHEET_ID  = '1U5KtFNN3SPcCygk4joTvCfpeA8SCgBaVE9mSjvR9rvM';
 const SHEET_GID = 0;
+const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+const STAGGER_MS_PER_ITEM  = 40;   // delay between each sidebar item entrance
+const COPY_COOLDOWN_MS     = 2000;  // copy button reset time
+const TOAST_DURATION_MS    = 2000;  // toast auto-hide time
+const SPARKLE_COUNT        = 30;    // floating sparkles
 
-// ================================= //
+/* ---- DOM refs ---- */
+const $ = (id) => document.getElementById(id);
 
-/** CSV export URL */
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+const sidebar       = $('sidebar');
+const sidebarNav    = $('sidebarNav');
+const contentPanel  = $('contentPanel');
+const contentWelcome = $('contentWelcome');
+const contentDetail  = $('contentDetail');
+const detailTitle    = $('detailTitle');
+const detailBody     = $('detailBody');
+const detailCopyBtn  = $('detailCopyBtn');
+const loadingCont    = $('loadingContainer');
+const errorCont      = $('errorContainer');
+const errorMsg       = $('errorMessage');
+const retryBtn       = $('retryBtn');
+const emptyCont      = $('emptyContainer');
+const toast          = $('toast');
+const sidebarToggle  = $('sidebarToggle');
+const sidebarOverlay = $('sidebarOverlay');
 
-/* ---- DOM references ---- */
-const sidebar = document.getElementById('sidebar');
-const sidebarNav = document.getElementById('sidebarNav');
-const contentPanel = document.getElementById('contentPanel');
-const contentWelcome = document.getElementById('contentWelcome');
-const contentDetail = document.getElementById('contentDetail');
-const detailTitle = document.getElementById('detailTitle');
-const detailBody = document.getElementById('detailBody');
-const detailCopyBtn = document.getElementById('detailCopyBtn');
-const loadingContainer = document.getElementById('loadingContainer');
-const errorContainer = document.getElementById('errorContainer');
-const errorMessage = document.getElementById('errorMessage');
-const retryBtn = document.getElementById('retryBtn');
-const emptyContainer = document.getElementById('emptyContainer');
-const toast = document.getElementById('toast');
-const sidebarToggle = document.getElementById('sidebarToggle');
-const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-let items = [];
+/* ---- State ---- */
+let items       = [];
 let activeIndex = -1;
-let toastTimer = null;
+let toastTimer  = null;
 
-/* ---- Fetch & render ---- */
+/* ======================================================
+   FETCH & PARSE
+   ====================================================== */
+
 async function fetchSheetData() {
   showLoading();
-
   try {
-    const response = await fetch(CSV_URL);
+    const res = await fetch(CSV_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const csvText = await response.text();
-    const rows = parseCSV(csvText);
-    const dataRows = rows.slice(1); // skip header row
-
-    if (dataRows.length === 0) {
-      showEmpty();
-      return;
-    }
+    const rows  = parseCSV(await res.text());
+    const data  = rows.slice(1); // skip header
+    if (!data.length) return showEmpty();
 
     items = [];
-    for (const row of dataRows) {
-      if (row.length >= 2) {
-        const title = (row[0] || '').trim();
-        const content = (row[1] || '').trim();
-        if (title || content) {
-          items.push({ title, content });
-        }
-      }
+    for (const row of data) {
+      if (row.length < 2) continue;
+      const title   = (row[0] || '').trim();
+      const content = (row[1] || '').trim();
+      if (title || content) items.push({ title, content });
     }
-
-    if (items.length === 0) {
-      showEmpty();
-      return;
-    }
+    if (!items.length) return showEmpty();
 
     renderSidebar(items);
   } catch (err) {
@@ -88,245 +67,220 @@ async function fetchSheetData() {
   }
 }
 
-/* ---- CSV Parser (handles quoted fields with commas & newlines) ---- */
 function parseCSV(text) {
   const rows = [];
-  let currentRow = [];
-  let currentField = '';
-  let inQuotes = false;
+  let row = [], field = '', inQ = false;
 
   for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const nextChar = text[i + 1] || '';
-
-    if (inQuotes) {
-      if (char === '"' && nextChar === '"') {
-        currentField += '"';
-        i++;
-      } else if (char === '"') {
-        inQuotes = false;
-      } else {
-        currentField += char;
-      }
+    const c = text[i], next = text[i + 1] || '';
+    if (inQ) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else field += c;
     } else {
-      if (char === '"') {
-        inQuotes = true;
-      } else if (char === ',') {
-        currentRow.push(currentField);
-        currentField = '';
-      } else if (char === '\n') {
-        currentRow.push(currentField);
-        currentField = '';
-        if (currentRow.length > 0 && currentRow.some(f => f.trim() !== '')) {
-          rows.push(currentRow);
-        }
-        currentRow = [];
-      } else if (char === '\r') {
-        // skip
-      } else {
-        currentField += char;
-      }
+      if (c === '"') inQ = true;
+      else if (c === ',')  { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); field = ''; if (row.some(f => f.trim())) rows.push(row); row = []; }
+      else if (c !== '\r') { field += c; }
     }
   }
-
-  if (currentField || inQuotes) {
-    currentRow.push(currentField);
-  }
-  if (currentRow.length > 0 && currentRow.some(f => f.trim() !== '')) {
-    rows.push(currentRow);
-  }
-
+  if (field || inQ) row.push(field);
+  if (row.some(f => f.trim())) rows.push(row);
   return rows;
 }
 
-/* ---- Render sidebar items ---- */
+/* ======================================================
+   RENDER SIDEBAR
+   ====================================================== */
+
 function renderSidebar(items) {
   hideAllStates();
   sidebar.classList.remove('hidden');
   contentPanel.classList.remove('hidden');
   sidebarNav.innerHTML = '';
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
+  items.forEach((item, i) => {
     const btn = document.createElement('button');
-    btn.className = 'sidebar-item';
+    btn.className  = 'sidebar-item';
     btn.textContent = item.title;
+    btn.tabIndex   = 0;
+    btn.style.setProperty('--item-delay', `${i * STAGGER_MS_PER_ITEM}ms`);
     btn.addEventListener('click', () => selectItem(i));
     sidebarNav.appendChild(btn);
-  }
+  });
 }
 
-/* ---- Select sidebar item ---- */
-function selectItem(index) {
-  activeIndex = index;
-  const item = items[index];
+/* ======================================================
+   SELECTION
+   ====================================================== */
 
-  // Update sidebar active state
-  const allBtns = sidebarNav.querySelectorAll('.sidebar-item');
-  allBtns.forEach((btn, i) => {
+function selectItem(index) {
+  if (index < 0 || index >= items.length) return;
+  activeIndex = index;
+  const item   = items[index];
+
+  // highlight active
+  sidebarNav.querySelectorAll('.sidebar-item').forEach((btn, i) => {
     btn.classList.toggle('active', i === index);
   });
 
-  // Show content detail
+  // show detail
   contentWelcome.classList.add('hidden');
   contentDetail.classList.remove('hidden');
   detailTitle.textContent = item.title;
-  detailBody.textContent = item.content;
+  detailBody.textContent  = item.content;
 
-  // Reset copy button
+  // reset copy btn
   detailCopyBtn.classList.remove('copied');
   detailCopyBtn.disabled = false;
   detailCopyBtn.textContent = ' Copy';
 
-  // Close mobile sidebar after selection
   closeSidebar();
 }
 
-/* ---- Copy to clipboard ---- */
+function navigateByKey(direction) {
+  const btns = sidebarNav.querySelectorAll('.sidebar-item');
+  if (!btns.length) return;
+  const max = btns.length - 1;
+  let next  = activeIndex + direction;
+  if (next < 0) next = max;
+  if (next > max) next = 0;
+  btns[next].focus();
+  selectItem(next);
+}
+
+/* ======================================================
+   CLIPBOARD
+   ====================================================== */
+
 detailCopyBtn.addEventListener('click', () => {
   if (activeIndex < 0 || activeIndex >= items.length) return;
-
   const text = items[activeIndex].content;
   if (!text) return;
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => {
-      onCopySuccess(detailCopyBtn);
-    }).catch(() => {
-      fallbackCopy(text, detailCopyBtn);
-    });
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(() => onCopySuccess(detailCopyBtn)).catch(() => fallbackCopy(text, detailCopyBtn));
   } else {
     fallbackCopy(text, detailCopyBtn);
   }
 });
 
-/* ---- Fallback copy using textarea ---- */
 function fallbackCopy(text, btn) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.left = '-9999px';
-  textarea.style.top = '-9999px';
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand('copy');
-    onCopySuccess(btn);
-  } catch (err) {
-    console.error('Fallback copy failed:', err);
-    showToast('❌ Copy failed!');
-  }
-  document.body.removeChild(textarea);
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); onCopySuccess(btn); }
+  catch { showToast('❌ Copy failed!'); }
+  document.body.removeChild(ta);
 }
 
-/* ---- Copy success handler ---- */
 function onCopySuccess(btn) {
   btn.classList.add('copied');
   btn.disabled = true;
   btn.textContent = ' Copied!';
   showToast('✅ Copied!');
-
   setTimeout(() => {
     btn.classList.remove('copied');
     btn.disabled = false;
     btn.textContent = ' Copy';
-  }, 2000);
+  }, COPY_COOLDOWN_MS);
 }
 
-/* ---- Toast notification ---- */
+/* ======================================================
+   TOAST
+   ====================================================== */
+
 function showToast(message) {
   toast.textContent = message;
-  toast.classList.remove('hidden', 'fade-out');
+  toast.classList.remove('hidden');
+  // force reflow so transition works on repeated calls
+  void toast.offsetWidth;
   toast.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
     toast.classList.remove('show');
     toast.classList.add('hidden');
-  }, 2000);
+  }, TOAST_DURATION_MS);
 }
 
-/* ---- State helpers ---- */
-function showLoading() {
-  hideAllStates();
-  loadingContainer.classList.remove('hidden');
-}
+/* ======================================================
+   STATE TRANSITIONS
+   ====================================================== */
+
+function showLoading()  { hideAllStates(); loadingCont.classList.remove('hidden'); }
+function showEmpty()    { hideAllStates(); emptyCont.classList.remove('hidden'); }
 
 function showError(msg) {
   hideAllStates();
-  errorContainer.classList.remove('hidden');
-  errorMessage.textContent = msg || 'Something went wrong while fetching data.';
-}
-
-function showEmpty() {
-  hideAllStates();
-  emptyContainer.classList.remove('hidden');
+  errorCont.classList.remove('hidden');
+  errorMsg.textContent = msg || 'Something went wrong while fetching data.';
 }
 
 function hideAllStates() {
-  loadingContainer.classList.add('hidden');
-  errorContainer.classList.add('hidden');
-  emptyContainer.classList.add('hidden');
-  sidebar.classList.add('hidden');
-  contentPanel.classList.add('hidden');
+  for (const el of [loadingCont, errorCont, emptyCont, sidebar, contentPanel]) {
+    el.classList.add('hidden');
+  }
 }
 
-/* ---- Sidebar mobile toggle ---- */
-function openSidebar() {
-  sidebar.classList.add('open');
-  sidebarOverlay.classList.remove('hidden');
-  sidebarToggle.classList.add('active');
-}
+/* ======================================================
+   MOBILE SIDEBAR TOGGLE
+   ====================================================== */
 
-function closeSidebar() {
-  sidebar.classList.remove('open');
-  sidebarOverlay.classList.add('hidden');
-  sidebarToggle.classList.remove('active');
-}
+function openSidebar()  { sidebar.classList.add('open'); sidebarOverlay.classList.remove('hidden'); sidebarToggle.classList.add('active'); }
+function closeSidebar() { sidebar.classList.remove('open'); sidebarOverlay.classList.add('hidden'); sidebarToggle.classList.remove('active'); }
 
 sidebarToggle.addEventListener('click', () => {
-  if (sidebar.classList.contains('open')) {
-    closeSidebar();
-  } else {
-    openSidebar();
-  }
+  sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
 });
-
 sidebarOverlay.addEventListener('click', closeSidebar);
 
-// Close sidebar on Escape key
+/* ======================================================
+   KEYBOARD SHORTCUTS
+   ====================================================== */
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && sidebar.classList.contains('open')) {
-    closeSidebar();
+  if (sidebar.classList.contains('open') && e.key === 'Escape') {
+    return closeSidebar();
   }
+  // Arrow keys navigate sidebar items
+  if (e.key === 'ArrowDown') { e.preventDefault(); navigateByKey(1); }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); navigateByKey(-1); }
 });
 
-/* ---- Retry button ---- */
-retryBtn.addEventListener('click', () => {
-  fetchSheetData();
-});
+/* ======================================================
+   INIT
+   ====================================================== */
 
-/* ---- Init: fetch on page load ---- */
+retryBtn.addEventListener('click', fetchSheetData);
+
 document.addEventListener('DOMContentLoaded', () => {
   fetchSheetData();
   createSparkles();
 });
 
-/* ---- Sparkles background ---- */
-function createSparkles() {
-  const container = document.getElementById('sparkles');
-  const sparkleChars = ['✦', '✧', '⋆', '☆', '·', '｡', '⁕', '❀'];
-  const colors = ['#FFB6C1', '#FFD700', '#FFB6E1', '#FF9EBB', '#DDA0DD', '#87CEEB'];
+/* ======================================================
+   SPARKLES BACKGROUND
+   ====================================================== */
 
-  for (let i = 0; i < 30; i++) {
-    const sparkle = document.createElement('span');
-    sparkle.className = 'sparkle-dot';
-    sparkle.textContent = sparkleChars[Math.floor(Math.random() * sparkleChars.length)];
-    sparkle.style.left = Math.random() * 100 + '%';
-    sparkle.style.top = Math.random() * 100 + '%';
-    sparkle.style.fontSize = (10 + Math.random() * 14) + 'px';
-    sparkle.style.color = colors[Math.floor(Math.random() * colors.length)];
-    sparkle.style.animationDuration = (4 + Math.random() * 6) + 's';
-    sparkle.style.animationDelay = (Math.random() * 5) + 's';
-    container.appendChild(sparkle);
+function createSparkles() {
+  const chars  = ['✦','✧','⋆','☆','·','｡','⁕','❀'];
+  const colors = ['#FFB6C1','#FFD700','#FFB6E1','#FF9EBB','#DDA0DD','#87CEEB'];
+  const parent = $('sparkles');
+  let frag = document.createDocumentFragment();
+
+  for (let i = 0; i < SPARKLE_COUNT; i++) {
+    const s = document.createElement('span');
+    s.className = 'sparkle-dot';
+    s.textContent = chars[Math.floor(Math.random() * chars.length)];
+    s.style.left   = Math.random() * 100 + '%';
+    s.style.top    = Math.random() * 100 + '%';
+    s.style.fontSize        = (10 + Math.random() * 14) + 'px';
+    s.style.color           = colors[Math.floor(Math.random() * colors.length)];
+    s.style.animationDuration = (4 + Math.random() * 6) + 's';
+    s.style.animationDelay    = (Math.random() * 5) + 's';
+    frag.appendChild(s);
   }
+  parent.appendChild(frag);
 }
