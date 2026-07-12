@@ -1,32 +1,30 @@
 /* ======================================================
-   CUTIE MENU ✨ — Card Grid + Detail Panel + cache
+   CUTIE MENU ✨ — Sidebar + Content + Cache
    ====================================================== */
 
 const SHEET_ID  = '1U5KtFNN3SPcCygk4joTvCfpeA8SCgBaVE9mSjvR9rvM';
 const SHEET_GID = 0;
 const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
-const CACHE_KEY = 'cutiemenu_grid_v2';
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
-const SKELETON_COUNT = 8;
+const CACHE_KEY = 'cutiemenu_sidebar_v3';
+const CACHE_TTL = 5 * 60 * 1000;
+const SKELETONS = 7;
 
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 // DOM
-const grid         = $('grid');
-const errorBox     = $('errorBox');
-const errorMsg     = $('errorMsg');
-const retryBtn     = $('retryBtn');
-const overlayBg    = $('overlayBg');
-const detailPanel  = $('detailPanel');
-const detailClose  = $('detailClose');
-const detailTitle  = $('detailTitle');
-const detailBody   = $('detailBody');
-const copyBtn      = $('copyBtn');
-const toast        = $('toast');
-const menuToggle   = $('menuToggle');
-const mOverlay     = $('mOverlay');
-const mSidebar     = $('mSidebar');
-const mSidebarNav  = $('mSidebarNav');
+const sidebar    = $('sidebar');
+const sidebarNav = $('sidebarNav');
+const errorBox   = $('errorBox');
+const errorMsg   = $('errorMsg');
+const retryBtn   = $('retryBtn');
+const detailEmpty= $('detailEmpty');
+const detailCard = $('detailCard');
+const detailTitle= $('detailTitle');
+const detailBody = $('detailBody');
+const copyBtn    = $('copyBtn');
+const toast      = $('toast');
+const menuToggle = $('menuToggle');
+const mOverlay   = $('mOverlay');
 
 let items       = [];
 let activeIndex = -1;
@@ -37,13 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
   createSparkles();
   renderSkeletons();
 
-  const cached = readCache();
-  if (cached) {
-    items = cached;
-    renderGrid();
-    renderMobileSidebar();
-    return;
-  }
+  const c = readCache();
+  if (c) { items = c; renderNav(); return; }
   fetchData();
 });
 
@@ -54,21 +47,20 @@ function readCache() {
     if (!raw) return null;
     const { ts, data } = JSON.parse(raw);
     if (Date.now() - ts < CACHE_TTL) return data;
-  } catch { /* ignore */ }
+  } catch {}
   return null;
 }
-function writeCache(data) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); }
-  catch { /* ignore */ }
+function writeCache(d) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: d })); } catch {}
 }
 
 // ===================== SKELETONS =====================
 function renderSkeletons() {
   let h = '';
-  for (let i = 0; i < SKELETON_COUNT; i++) {
-    h += `<div class="skel-card"><div class="skel-line w1"></div><div class="skel-line w2"></div><div class="skel-line w3"></div></div>`;
+  for (let i = 0; i < SKELETONS; i++) {
+    h += `<div class="skel-nav"><span class="skel-bar skel-bullet"></span><span class="skel-bar skel-text" style="width:${48 + (i * 7) % 45}%"></span></div>`;
   }
-  grid.innerHTML = h;
+  sidebarNav.innerHTML = h;
 }
 
 // ===================== FETCH =====================
@@ -78,23 +70,22 @@ async function fetchData() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = parseCSV(await res.text());
     const data = rows.slice(1);
-    if (!data.length) return showError('No data found in the sheet.');
+    if (!data.length) return showError('No data found.');
 
     items = [];
     for (const row of data) {
       if (row.length < 2) continue;
-      const title   = (row[0] || '').trim();
-      const content = (row[1] || '').trim();
-      if (title || content) items.push({ title, content });
+      const t = (row[0] || '').trim();
+      const c = (row[1] || '').trim();
+      if (t || c) items.push({ title: t, content: c });
     }
-    if (!items.length) return showError('No data found in the sheet.');
+    if (!items.length) return showError('No items found.');
 
     writeCache(items);
-    renderGrid();
-    renderMobileSidebar();
-  } catch (err) {
-    console.error(err);
-    showError(err.message || 'Could not fetch data.');
+    renderNav();
+  } catch (e) {
+    console.error(e);
+    showError(e.message || 'Could not fetch data.');
   }
 }
 
@@ -119,55 +110,34 @@ function parseCSV(text) {
   return rows;
 }
 
-// ===================== RENDER GRID =====================
-function renderGrid() {
+// ===================== RENDER NAV =====================
+function renderNav() {
   let h = '';
   items.forEach((item, i) => {
-    const preview = (item.content || '').slice(0, 150).replace(/\s+/g, ' ').trim();
-    h += `
-      <div class="card" data-idx="${i}" tabindex="0" role="button" aria-label="${escHtml(item.title)}">
-        <div class="card-title">${escHtml(item.title)}</div>
-        <div class="card-preview">${escHtml(preview) || 'No preview'}</div>
-        <div class="card-footer">♡ View details</div>
-      </div>`;
+    h += `<button class="nav-item" data-idx="${i}">${escHtml(item.title)}</button>`;
   });
-  grid.innerHTML = h;
+  sidebarNav.innerHTML = h;
 
-  // delegated click + keyboard
-  grid.onclick = (e) => {
-    const card = e.target.closest('.card');
-    if (!card) return;
-    openDetail(+card.dataset.idx);
-  };
-  grid.onkeydown = (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const card = e.target.closest('.card');
-    if (!card) return;
-    e.preventDefault();
-    openDetail(+card.dataset.idx);
-  };
-}
-
-// ===================== MOBILE SIDEBAR =====================
-function renderMobileSidebar() {
-  let h = '';
-  items.forEach((item, i) => {
-    h += `<button class="mnav-item" data-idx="${i}">${escHtml(item.title)}</button>`;
-  });
-  mSidebarNav.innerHTML = h;
-
-  mSidebarNav.onclick = (e) => {
-    const btn = e.target.closest('.mnav-item');
+  sidebarNav.onclick = e => {
+    const btn = e.target.closest('.nav-item');
     if (!btn) return;
-    openDetail(+btn.dataset.idx);
-    closeMobileSidebar();
+    selectItem(+btn.dataset.idx);
   };
+
+  // Mobile nav also bound here (same sidebar DOM)
 }
 
-// ===================== DETAIL PANEL =====================
-function openDetail(index) {
+// ===================== SELECT =====================
+function selectItem(index) {
   if (index < 0 || index >= items.length) return;
   activeIndex = index;
+
+  sidebarNav.querySelectorAll('.nav-item').forEach((b, i) => b.classList.toggle('active', i === index));
+
+  // show detail
+  detailEmpty.classList.add('hidden');
+  detailCard.classList.remove('hidden');
+  errorBox.classList.add('hidden');
 
   detailTitle.textContent = items[index].title;
   detailBody.textContent  = items[index].content;
@@ -176,43 +146,15 @@ function openDetail(index) {
   copyBtn.disabled = false;
   copyBtn.innerHTML = '📋 Copy';
 
-  overlayBg.classList.remove('hidden');
-  detailPanel.classList.remove('hidden');
-  // trigger reflow then open
-  void detailPanel.offsetWidth;
-  detailPanel.classList.add('open');
-
-  // focus trap
-  detailClose.focus();
+  // on mobile, close sidebar after selection
+  if (window.innerWidth <= 800) closeMobileSidebar();
 }
-
-function closeDetail() {
-  detailPanel.classList.remove('open');
-  const onTransitionEnd = () => {
-    detailPanel.classList.add('hidden');
-    overlayBg.classList.add('hidden');
-    detailPanel.removeEventListener('transitionend', onTransitionEnd);
-    activeIndex = -1;
-  };
-  detailPanel.addEventListener('transitionend', onTransitionEnd, { once: true });
-  // fallback if transitionend doesn't fire
-  setTimeout(() => { detailPanel.classList.add('hidden'); overlayBg.classList.add('hidden'); activeIndex = -1; }, 400);
-}
-
-detailClose.addEventListener('click', closeDetail);
-overlayBg.addEventListener('click', closeDetail);
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && detailPanel.classList.contains('open')) {
-    closeDetail();
-  }
-});
 
 // ===================== COPY =====================
 copyBtn.addEventListener('click', () => {
   if (activeIndex < 0) return;
   const text = items[activeIndex].content;
   if (!text) return;
-
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).then(copied, () => fallbackCopy(text));
   } else {
@@ -222,8 +164,7 @@ copyBtn.addEventListener('click', () => {
 
 function fallbackCopy(text) {
   const ta = Object.assign(document.createElement('textarea'), { value: text, style: 'position:fixed;left:-9999px' });
-  document.body.appendChild(ta);
-  ta.select();
+  document.body.appendChild(ta); ta.select();
   try { document.execCommand('copy'); copied(); } catch { toastMsg('❌ Copy failed'); }
   ta.remove();
 }
@@ -233,11 +174,7 @@ function copied() {
   copyBtn.disabled = true;
   copyBtn.innerHTML = '✅ Copied!';
   toastMsg('✅ Copied!');
-  setTimeout(() => {
-    copyBtn.classList.remove('copied');
-    copyBtn.disabled = false;
-    copyBtn.innerHTML = '📋 Copy';
-  }, 1800);
+  setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.disabled = false; copyBtn.innerHTML = '📋 Copy'; }, 1800);
 }
 
 // ===================== TOAST =====================
@@ -252,46 +189,55 @@ function toastMsg(msg) {
 
 // ===================== ERROR =====================
 function showError(msg) {
-  grid.classList.add('hidden');
+  sidebarNav.innerHTML = '';
   errorBox.classList.remove('hidden');
   errorMsg.textContent = msg || 'Could not fetch data.';
 }
+
 retryBtn.addEventListener('click', () => {
   errorBox.classList.add('hidden');
-  grid.classList.remove('hidden');
   renderSkeletons();
   fetchData();
 });
 
-// ===================== MOBILE SIDEBAR TOGGLE =====================
-function openMobileSidebar()  { mSidebar.classList.add('open'); mOverlay.classList.remove('hidden'); menuToggle.classList.add('open'); }
-function closeMobileSidebar() { mSidebar.classList.remove('open'); mOverlay.classList.add('hidden'); menuToggle.classList.remove('open'); }
+// ===================== MOBILE TOGGLE =====================
+function openMobileSidebar()  { sidebar.classList.add('open'); mOverlay.classList.remove('hidden'); menuToggle.classList.add('open'); }
+function closeMobileSidebar() { sidebar.classList.remove('open'); mOverlay.classList.add('hidden'); menuToggle.classList.remove('open'); }
 
-menuToggle.addEventListener('click', () => mSidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar());
+menuToggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar());
 mOverlay.addEventListener('click', closeMobileSidebar);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && sidebar.classList.contains('open')) closeMobileSidebar(); });
+
+// ===================== KEYBOARD ARROW NAV =====================
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); navBy(1); }
+  if (e.key === 'ArrowUp')   { e.preventDefault(); navBy(-1); }
+});
+
+function navBy(dir) {
+  const btns = sidebarNav.querySelectorAll('.nav-item');
+  if (!btns.length) return;
+  let next = activeIndex + dir;
+  if (next < 0) next = btns.length - 1;
+  if (next >= btns.length) next = 0;
+  btns[next].focus();
+  selectItem(next);
+}
 
 // ===================== SPARKLES =====================
 function createSparkles() {
   const chars  = ['✦','✧','⋆','☆','｡','❀'];
   const colors = ['#FFB6C1','#FFD700','#FFB6E1','#FF9EBB','#DDA0DD','#87CEEB'];
-  const parent = $('sparkles');
-  const frag   = new DocumentFragment();
+  const p = $('sparkles'), f = new DocumentFragment();
   for (let i = 0; i < 16; i++) {
     const s = document.createElement('span');
-    s.className = 's-dot';
-    s.textContent = chars[i % chars.length];
-    s.style.left   = ((i * 19 + 5) % 100) + '%';
-    s.style.top    = ((i * 27 + 3) % 100) + '%';
-    s.style.color  = colors[i % colors.length];
-    s.style.fontSize        = (10 + (i % 8)) + 'px';
-    s.style.animationDuration = (5 + (i % 3)) + 's';
-    s.style.animationDelay    = (i * 0.7) + 's';
-    frag.appendChild(s);
+    Object.assign(s, { className: 's-dot', textContent: chars[i % chars.length] });
+    s.style.cssText = `left:${(i*19+5)%100}%;top:${(i*27+3)%100}%;color:${colors[i%colors.length]};font-size:${10+(i%8)}px;animation-duration:${5+(i%3)}s;animation-delay:${i*0.7}s`;
+    f.appendChild(s);
   }
-  parent.appendChild(frag);
+  p.appendChild(f);
 }
 
-// ===================== UTIL =====================
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

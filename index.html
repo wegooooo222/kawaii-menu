@@ -25,38 +25,44 @@
     </div>
   </header>
 
-  <!-- Main content: full-width card grid -->
-  <main class="main" id="main">
+  <!-- Body: sidebar + content -->
+  <div class="body">
+    <!-- Desktop sidebar (always visible on desktop) -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">🌸 Menu</div>
+      <nav class="sidebar-nav" id="sidebarNav">
+        <!-- skeleton -->
+      </nav>
+    </aside>
 
-    <!-- Error state -->
-    <div class="state hidden" id="errorBox">
-      <span class="state-emoji">😿</span>
-      <h2>Oopsie!</h2>
-      <p id="errorMsg">Something went wrong</p>
-      <button class="btn-retry" id="retryBtn">Try Again ♡</button>
-    </div>
+    <!-- Content area -->
+    <main class="content" id="content">
+      <!-- Error -->
+      <div class="state hidden" id="errorBox">
+        <span class="state-emoji">😿</span>
+        <h2>Oopsie!</h2>
+        <p id="errorMsg">Something went wrong</p>
+        <button class="btn-retry" id="retryBtn">Try Again ♡</button>
+      </div>
 
-    <!-- Card grid (filled by JS) -->
-    <div class="grid" id="grid">
-      <!-- skeleton cards injected by JS immediately -->
-    </div>
-  </main>
-
-  <!-- Detail overlay -->
-  <div class="overlay hidden" id="overlayBg"></div>
-  <div class="detail-panel hidden" id="detailPanel">
-    <button class="detail-close" id="detailClose" aria-label="Close">✕</button>
-    <h2 class="detail-title" id="detailTitle"></h2>
-    <div class="detail-body" id="detailBody"></div>
-    <button class="copy-btn" id="copyBtn"> Copy</button>
+      <!-- Detail panel -->
+      <div class="detail" id="detail">
+        <div class="detail-empty" id="detailEmpty">
+          <span class="empty-icon">🎀</span>
+          <h2>Pick something cute!</h2>
+          <p>Select an item from the sidebar to view its content~</p>
+        </div>
+        <div class="detail-card hidden" id="detailCard">
+          <h2 class="detail-title" id="detailTitle"></h2>
+          <div class="detail-body" id="detailBody"></div>
+          <button class="copy-btn" id="copyBtn"> Copy</button>
+        </div>
+      </div>
+    </main>
   </div>
 
-  <!-- Mobile sidebar -->
-  <div class="moverlay hidden" id="mOverlay"></div>
-  <aside class="msidebar" id="mSidebar">
-    <div class="msidebar-head">🌸 Menu</div>
-    <nav class="msidebar-nav" id="mSidebarNav"></nav>
-  </aside>
+  <!-- Mobile overlay + sidebar -->
+  <div class="m-overlay hidden" id="mOverlay"></div>
 
   <!-- Toast -->
   <div class="toast hidden" id="toast"></div>
